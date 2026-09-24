@@ -1,462 +1,273 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
+import streamlit as st
 
+st.set_page_config(page_title="Bookstore System", layout="wide")
 
-# ==========================================================
-# BOOKSTORE CLASS - OOP
-# ==========================================================
 
 class Bookstore:
 
     def __init__(self):
-        self.books = []
-        self.sales = []
+        if "books" not in st.session_state:
+            st.session_state.books = [
+                {
+                    "Title": "Python Basics",
+                    "Author": "John Smith",
+                    "Price": 450.0,
+                    "Quantity": 10,
+                },
+                {
+                    "Title": "Data Science",
+                    "Author": "Robert Brown",
+                    "Price": 600.0,
+                    "Quantity": 8,
+                },
+                {
+                    "Title": "Machine Learning",
+                    "Author": "David Lee",
+                    "Price": 750.0,
+                    "Quantity": 6,
+                },
+                {
+                    "Title": "Artificial Intelligence",
+                    "Author": "James Wilson",
+                    "Price": 900.0,
+                    "Quantity": 4,
+                },
+                {
+                    "Title": "Web Development",
+                    "Author": "Michael Clark",
+                    "Price": 500.0,
+                    "Quantity": 12,
+                },
+            ]
 
-    # ------------------------------------------------------
-    # Add Book
-    # ------------------------------------------------------
-    def add_book(self, title, author, price, quantity):
+        if "sales" not in st.session_state:
+            st.session_state.sales = []
 
-        if price <= 0 or quantity <= 0:
-            print("Price and quantity must be positive.")
+        self.books = st.session_state.books
+        self.sales = st.session_state.sales
+
+    def add_book(self):
+        st.header("Add New Book")
+        with st.form("add_form"):
+            title = st.text_input("Book Title")
+            author = st.text_input("Author Name")
+            price = st.number_input("Price", min_value=1.0, value=100.0)
+            quantity = st.number_input("Quantity", min_value=1, value=1)
+            submit = st.form_submit_button("Add Book")
+
+            if submit:
+                if title and author:
+                    self.books.append(
+                        {
+                            "Title": title,
+                            "Author": author,
+                            "Price": price,
+                            "Quantity": quantity,
+                        }
+                    )
+                    st.success(f"Book '{title}' added successfully!")
+                else:
+                    st.error("Please enter Title and Author.")
+
+    def update_inventory(self):
+        st.header("Update Book Quantity")
+        if not self.books:
+            st.warning("Inventory is empty.")
             return
 
-        book = {
-            "Title": title,
-            "Author": author,
-            "Price": price,
-            "Quantity": quantity
-        }
+        titles = [b["Title"] for b in self.books]
+        selected = st.selectbox("Select Book", titles)
+        new_qty = st.number_input("New Quantity", min_value=1, value=1)
 
-        self.books.append(book)
-        print("Book added successfully!")
+        if st.button("Update"):
+            for book in self.books:
+                if book["Title"] == selected:
+                    book["Quantity"] = new_qty
+                    st.success(f"Quantity updated for '{selected}'!")
+                    break
 
-    # ------------------------------------------------------
-    # Update Inventory
-    # ------------------------------------------------------
-    def update_inventory(self, title, quantity):
+    def record_sale(self):
+        st.header("Record Sale")
+        if not self.books:
+            st.warning("Inventory is empty.")
+            return
 
-        for book in self.books:
-            if book["Title"].lower() == title.lower():
+        titles = [b["Title"] for b in self.books]
+        selected = st.selectbox("Select Book", titles)
+        qty = st.number_input("Quantity Sold", min_value=1, value=1)
 
-                if quantity <= 0:
-                    print("Quantity must be positive.")
-                    return
+        if st.button("Record Sale"):
+            for book in self.books:
+                if book["Title"] == selected:
+                    if qty > book["Quantity"]:
+                        st.error("Not enough stock!")
+                    else:
+                        book["Quantity"] -= qty
+                        total = book["Price"] * qty
+                        self.sales.append(
+                            {
+                                "Title": book["Title"],
+                                "Quantity": qty,
+                                "Price": book["Price"],
+                                "Total": total,
+                            }
+                        )
+                        st.success(f"Sale recorded! Total Amount: ₹{total}")
+                    break
 
-                book["Quantity"] = quantity
-                print("Inventory updated successfully!")
-                return
+    def remove_book(self):
+        st.header("Remove Book")
+        if not self.books:
+            st.warning("Inventory is empty.")
+            return
 
-        print("Book not found.")
+        titles = [b["Title"] for b in self.books]
+        selected = st.selectbox("Select Book", titles)
 
-    # ------------------------------------------------------
-    # Record Sale
-    # ------------------------------------------------------
-    def record_sale(self, title, quantity):
+        if st.button("Remove"):
+            st.session_state.books = [
+                b for b in self.books if b["Title"] != selected
+            ]
+            st.success(f"Book '{selected}' removed!")
 
-        for book in self.books:
-
-            if book["Title"].lower() == title.lower():
-
-                if quantity <= 0:
-                    print("Quantity must be positive.")
-                    return
-
-                if quantity > book["Quantity"]:
-                    print("Not enough stock available.")
-                    return
-
-                # Deduct stock
-                book["Quantity"] -= quantity
-
-                total = book["Price"] * quantity
-
-                sale = {
-                    "Title": book["Title"],
-                    "Quantity": quantity,
-                    "Price": book["Price"],
-                    "Total": total
-                }
-
-                self.sales.append(sale)
-
-                print("Sale recorded successfully!")
-                print("Total Sale Amount:", total)
-                return
-
-        print("Book not found.")
-
-    # ------------------------------------------------------
-    # Remove Book
-    # ------------------------------------------------------
-    def remove_book(self, title):
-
-        for book in self.books:
-
-            if book["Title"].lower() == title.lower():
-                self.books.remove(book)
-                print("Book removed successfully!")
-                return
-
-        print("Book not found.")
-
-    # ------------------------------------------------------
-    # Display Inventory
-    # ------------------------------------------------------
     def display_inventory(self):
-
+        st.header("Book Inventory")
         if not self.books:
-            print("Inventory is empty.")
-            return
+            st.warning("Inventory is empty.")
+        else:
+            st.dataframe(pd.DataFrame(self.books), use_container_width=True)
 
-        df = pd.DataFrame(self.books)
-
-        print("\n========== BOOK INVENTORY ==========")
-        print(df.to_string(index=False))
-
-    # ------------------------------------------------------
-    # Low Stock Books
-    # ------------------------------------------------------
     def low_stock(self):
+        st.header("Low Stock Books (< 5)")
+        low_stock_list = [b for b in self.books if b["Quantity"] < 5]
+        if low_stock_list:
+            st.dataframe(
+                pd.DataFrame(low_stock_list), use_container_width=True
+            )
+        else:
+            st.info("No low stock books.")
 
-        print("\n========== LOW STOCK BOOKS ==========")
-
-        found = False
-
-        for book in self.books:
-
-            if book["Quantity"] < 5:
-                print(
-                    f"Title: {book['Title']} | "
-                    f"Quantity: {book['Quantity']}"
-                )
-                found = True
-
-        if not found:
-            print("No low-stock books.")
-
-    # ------------------------------------------------------
-    # Inventory Analytics
-    # ------------------------------------------------------
     def inventory_analytics(self):
-
+        st.header("Inventory Analytics")
         if not self.books:
-            print("No inventory data available.")
+            st.warning("No data available.")
             return
 
         df = pd.DataFrame(self.books)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Books", int(df["Quantity"].sum()))
+        col2.metric(
+            "Total Value", f"₹{(df['Price'] * df['Quantity']).sum():,.2f}"
+        )
+        col3.metric("Average Price", f"₹{df['Price'].mean():.2f}")
 
-        total_books = df["Quantity"].sum()
-        inventory_value = (df["Price"] * df["Quantity"]).sum()
-        average_price = df["Price"].mean()
-
-        print("\n========== INVENTORY ANALYTICS ==========")
-        print("Total Books in Stock:", total_books)
-        print("Total Inventory Value:", inventory_value)
-        print("Average Book Price:", round(average_price, 2))
-
-        # NumPy Array
         quantities = np.array(df["Quantity"])
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Max Stock", int(np.max(quantities)))
+        m2.metric("Min Stock", int(np.min(quantities)))
+        m3.metric("Avg Stock", f"{np.mean(quantities):.2f}")
 
-        print("Maximum Stock:", np.max(quantities))
-        print("Minimum Stock:", np.min(quantities))
-        print("Average Stock:", round(np.mean(quantities), 2))
-
-    # ------------------------------------------------------
-    # Sales Analytics
-    # ------------------------------------------------------
     def sales_analytics(self):
-
+        st.header("Sales Analytics")
         if not self.sales:
-            print("No sales data available.")
+            st.info("No sales data available.")
             return
 
         df = pd.DataFrame(self.sales)
-
-        total_sales = df["Total"].sum()
-        total_books_sold = df["Quantity"].sum()
-
-        best_selling = (
-            df.groupby("Title")["Quantity"]
-            .sum()
-            .idxmax()
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Books Sold", int(df["Quantity"].sum()))
+        col2.metric("Total Revenue", f"₹{df['Total'].sum():,.2f}")
+        col3.metric(
+            "Best Seller", df.groupby("Title")["Quantity"].sum().idxmax()
         )
 
-        print("\n========== SALES ANALYTICS ==========")
-        print("Total Books Sold:", total_books_sold)
-        print("Total Sales Revenue:", total_sales)
-        print("Best Selling Book:", best_selling)
+        st.dataframe(df, use_container_width=True)
 
-        print("\nSales Data:")
-        print(df.to_string(index=False))
-
-    # ------------------------------------------------------
-    # Save Inventory Dataset
-    # ------------------------------------------------------
     def save_inventory(self):
-
+        st.header("Save Inventory")
         if not self.books:
-            print("No inventory data to save.")
+            st.warning("No data to save.")
             return
 
-        df = pd.DataFrame(self.books)
-        df.to_csv("book_inventory.csv", index=False)
+        csv = pd.DataFrame(self.books).to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Inventory CSV",
+            csv,
+            "book_inventory.csv",
+            mime="text/csv",
+        )
 
-        print("Inventory saved to book_inventory.csv")
-
-    # ------------------------------------------------------
-    # Save Sales Dataset
-    # ------------------------------------------------------
     def save_sales(self):
-
+        st.header("Save Sales")
         if not self.sales:
-            print("No sales data to save.")
+            st.warning("No data to save.")
             return
 
-        df = pd.DataFrame(self.sales)
-        df.to_csv("book_sales.csv", index=False)
+        csv = pd.DataFrame(self.sales).to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Sales CSV", csv, "book_sales.csv", mime="text/csv"
+        )
 
-        print("Sales data saved to book_sales.csv")
-
-    # ------------------------------------------------------
-    # Sales Chart - Matplotlib
-    # ------------------------------------------------------
     def sales_chart(self):
-
+        st.header("Sales Chart")
         if not self.sales:
-            print("No sales data available.")
+            st.info("No sales data available.")
             return
 
         df = pd.DataFrame(self.sales)
-
         sales_data = df.groupby("Title")["Quantity"].sum()
 
-        plt.figure(figsize=(9, 5))
-
-        sales_data.plot(kind="bar")
-
-        plt.title("Book-wise Sales")
-        plt.xlabel("Book Title")
-        plt.ylabel("Quantity Sold")
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sales_data.plot(kind="bar", ax=ax, color="skyblue")
+        ax.set_title("Book-wise Sales")
+        ax.set_xlabel("Title")
+        ax.set_ylabel("Quantity Sold")
         plt.xticks(rotation=45)
-
         plt.tight_layout()
-        plt.show()
+        st.pyplot(fig)
 
-    # ------------------------------------------------------
-    # Inventory Chart - Seaborn
-    # ------------------------------------------------------
     def inventory_chart(self):
-
+        st.header("Inventory Chart")
         if not self.books:
-            print("No inventory data available.")
+            st.warning("No inventory data available.")
             return
 
         df = pd.DataFrame(self.books)
-
-        plt.figure(figsize=(9, 5))
-
-        sns.barplot(
-            data=df,
-            x="Title",
-            y="Quantity"
-        )
-
-        plt.title("Book Inventory")
-        plt.xlabel("Book Title")
-        plt.ylabel("Available Quantity")
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.barplot(data=df, x="Title", y="Quantity", ax=ax, palette="Blues_d")
+        ax.set_title("Book Inventory Levels")
+        ax.set_xlabel("Title")
+        ax.set_ylabel("Quantity")
         plt.xticks(rotation=45)
-
         plt.tight_layout()
-        plt.show()
+        st.pyplot(fig)
+
+    def run(self):
+        st.title("📚 Bookstore Inventory & Analytics System")
+
+        options = {
+            "1. Display Inventory": self.display_inventory,
+            "2. Add Book": self.add_book,
+            "3. Update Inventory": self.update_inventory,
+            "4. Remove Book": self.remove_book,
+            "5. Record Sale": self.record_sale,
+            "6. Low Stock Books": self.low_stock,
+            "7. Inventory Analytics": self.inventory_analytics,
+            "8. Sales Analytics": self.sales_analytics,
+            "9. Save Inventory Dataset": self.save_inventory,
+            "10. Save Sales Dataset": self.save_sales,
+            "11. Show Sales Chart": self.sales_chart,
+            "12. Show Inventory Chart": self.inventory_chart,
+        }
+
+        choice = st.sidebar.selectbox("Menu", list(options.keys()))
+        options[choice]()
 
 
-# ==========================================================
-# MAIN PROGRAM
-# ==========================================================
-
-store = Bookstore()
-
-
-# Sample Dataset
-store.add_book("Python Basics", "John Smith", 450, 10)
-store.add_book("Data Science", "Robert Brown", 600, 8)
-store.add_book("Machine Learning", "David Lee", 750, 6)
-store.add_book("Artificial Intelligence", "James Wilson", 900, 4)
-store.add_book("Web Development", "Michael Clark", 500, 12)
-
-
-# ==========================================================
-# MENU
-# ==========================================================
-
-while True:
-
-    print("\n")
-    print("==============================================")
-    print("   BOOKSTORE INVENTORY & ANALYTICS SYSTEM")
-    print("==============================================")
-    print("1. Add Book")
-    print("2. Display Inventory")
-    print("3. Update Inventory")
-    print("4. Remove Book")
-    print("5. Record Sale")
-    print("6. Low Stock Books")
-    print("7. Inventory Analytics")
-    print("8. Sales Analytics")
-    print("9. Save Inventory Dataset")
-    print("10. Save Sales Dataset")
-    print("11. Show Sales Chart")
-    print("12. Show Inventory Chart")
-    print("13. Exit")
-    print("==============================================")
-
-
-    choice = input("Enter your choice: ")
-
-
-    # ------------------------------------------------------
-    # Add Book
-    # ------------------------------------------------------
-    if choice == "1":
-
-        title = input("Enter book title: ")
-        author = input("Enter author name: ")
-
-        try:
-            price = float(input("Enter price: "))
-            quantity = int(input("Enter quantity: "))
-
-            store.add_book(
-                title,
-                author,
-                price,
-                quantity
-            )
-
-        except ValueError:
-            print("Please enter valid numbers.")
-
-
-    # ------------------------------------------------------
-    # Display Inventory
-    # ------------------------------------------------------
-    elif choice == "2":
-
-        store.display_inventory()
-
-
-    # ------------------------------------------------------
-    # Update Inventory
-    # ------------------------------------------------------
-    elif choice == "3":
-
-        title = input("Enter book title: ")
-
-        try:
-            quantity = int(input("Enter new quantity: "))
-            store.update_inventory(title, quantity)
-
-        except ValueError:
-            print("Invalid quantity.")
-
-
-    # ------------------------------------------------------
-    # Remove Book
-    # ------------------------------------------------------
-    elif choice == "4":
-
-        title = input("Enter book title to remove: ")
-
-        store.remove_book(title)
-
-
-    # ------------------------------------------------------
-    # Record Sale
-    # ------------------------------------------------------
-    elif choice == "5":
-
-        title = input("Enter book title: ")
-
-        try:
-            quantity = int(input("Enter quantity sold: "))
-
-            store.record_sale(
-                title,
-                quantity
-            )
-
-        except ValueError:
-            print("Invalid quantity.")
-
-
-    # ------------------------------------------------------
-    # Low Stock
-    # ------------------------------------------------------
-    elif choice == "6":
-
-        store.low_stock()
-
-
-    # ------------------------------------------------------
-    # Inventory Analytics
-    # ------------------------------------------------------
-    elif choice == "7":
-
-        store.inventory_analytics()
-
-
-    # ------------------------------------------------------
-    # Sales Analytics
-    # ------------------------------------------------------
-    elif choice == "8":
-
-        store.sales_analytics()
-
-
-    # ------------------------------------------------------
-    # Save Inventory
-    # ------------------------------------------------------
-    elif choice == "9":
-
-        store.save_inventory()
-
-
-    # ------------------------------------------------------
-    # Save Sales
-    # ------------------------------------------------------
-    elif choice == "10":
-
-        store.save_sales()
-
-
-    # ------------------------------------------------------
-    # Sales Chart
-    # ------------------------------------------------------
-    elif choice == "11":
-
-        store.sales_chart()
-
-
-    # ------------------------------------------------------
-    # Inventory Chart
-    # ------------------------------------------------------
-    elif choice == "12":
-
-        store.inventory_chart()
-
-
-    # ------------------------------------------------------
-    # Exit
-    # ------------------------------------------------------
-    elif choice == "13":
-
-        print("Thank you for using Bookstore System!")
-        break
-
-
-    else:
-
-        print("Invalid choice. Please try again.")
+if __name__ == "__main__":
+    app = Bookstore()
+    app.run()
